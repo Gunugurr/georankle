@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:geotrivia.com)",
+      "WebSearch",
+      "Bash(npm create *)",
+      "Bash(npx create-vite@latest . --template react-ts)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(node -e \"const c = require\\('./src/data/countries.ts'\\); console.log\\('countries loaded'\\)\")",
+      "Bash(node -e \"import\\('./src/data/countries.ts'\\).then\\(m => console.log\\('unique:', m.COUNTRIES_UNIQUE.length\\)\\)\")",
+      "Bash(node -e \"const fs = require\\('fs'\\); const txt = fs.readFileSync\\('src/data/countries.ts','utf8'\\); const matches = txt.match\\(/code: '[A-Z]{2}'/g\\); console.log\\('Total entries:', matches?.length\\); const unique = new Set\\(matches?.map\\(m=>m.slice\\(7,9\\)\\)\\); console.log\\('Unique countries:', unique.size\\);\")"
+    ]
+  }
+}
