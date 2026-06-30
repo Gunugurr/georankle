@@ -21,6 +21,7 @@ export interface GameState {
   rounds: RoundResult[];
   totalScore: number;
   finished: boolean;
+  maxAchievableScore: number;
 }
 
 /** Seed-based pseudo-random number generator (mulberry32) */
@@ -68,7 +69,41 @@ export function createGame(
     rounds: [],
     totalScore: 0,
     finished: false,
+    maxAchievableScore: computeMaxAchievableScore(countries, categories),
   };
+}
+
+/**
+ * Best possible total if the player assigned categories to countries optimally.
+ * Brute-force over all permutations (8! = 40320 — fast enough).
+ */
+export function computeMaxAchievableScore(
+  countries: Country[],
+  categories: Category[],
+): number {
+  const n = countries.length;
+  if (n === 0) return 0;
+  const cats = [...categories];
+  let best = 0;
+
+  const permute = (start: number) => {
+    if (start === n) {
+      let sum = 0;
+      for (let i = 0; i < n; i++) {
+        sum += rankToScore(countries[i]!.stats[cats[i]!.id]);
+      }
+      if (sum > best) best = sum;
+      return;
+    }
+    for (let i = start; i < n; i++) {
+      [cats[start], cats[i]] = [cats[i]!, cats[start]!];
+      permute(start + 1);
+      [cats[start], cats[i]] = [cats[i]!, cats[start]!];
+    }
+  };
+
+  permute(0);
+  return best;
 }
 
 const WORLD_COUNTRIES = 195;
@@ -120,7 +155,7 @@ export function playRound(state: GameState, chosenCategory: Category): GameState
 }
 
 export function maxPossibleScore(state: GameState): number {
-  return state.countries.length * 100;
+  return state.maxAchievableScore;
 }
 
 export function grade(score: number, max: number): string {

@@ -1,6 +1,7 @@
 import type { GameState } from '../game/gameLogic';
 import { maxPossibleScore, grade } from '../game/gameLogic';
 import FlagEmoji from './FlagEmoji';
+import { useLang, useStrings, categoryLabel } from '../i18n';
 
 interface Props {
   state: GameState;
@@ -11,29 +12,33 @@ interface Props {
 }
 
 export default function ResultScreen({ state, onPlayAgain, onSwitchMode, onMenu, dailyPlayed }: Props) {
+  const s = useStrings();
+  const lang = useLang();
   const max = maxPossibleScore(state);
   const g = grade(state.totalScore, max);
   const switchDisabled = state.mode === 'free' && dailyPlayed;
   const switchLabel =
     state.mode === 'daily'
-      ? 'Play Free Mode'
+      ? s.playFreeMode
       : dailyPlayed
-      ? '✅ Daily Done'
-      : 'Daily Challenge';
+      ? s.dailyDoneShort
+      : s.dailyChallenge;
 
   return (
     <div className="result-screen">
-      <h2 className="result-title">Game Over</h2>
+      <h2 className="result-title">{s.gameOver}</h2>
       <div className="result-grade">{g}</div>
       <div className="result-score">
         {state.totalScore} / {max}
       </div>
 
-      <div className="result-review-title">Round by round</div>
+      <div className="result-review-title">{s.roundByRound}</div>
       <div className="result-rounds">
         {state.rounds.map((r, i) => {
           const isOptimal = r.chosenCategory.id === r.bestCategory.id;
           const delta = r.bestPossibleScore - r.score;
+          const chosenLbl = categoryLabel(r.chosenCategory.id, lang);
+          const bestLbl = categoryLabel(r.bestCategory.id, lang);
           return (
             <div
               key={i}
@@ -45,12 +50,12 @@ export default function ResultScreen({ state, onPlayAgain, onSwitchMode, onMenu,
                 <span className="result-row-name">{r.country.name}</span>
                 <span className="result-row-yours">
                   <span className="result-row-mark">{isOptimal ? '✓' : '✗'}</span>
-                  {r.chosenCategory.emoji} {r.chosenCategory.label}
+                  {r.chosenCategory.emoji} {chosenLbl}
                   <span className="result-row-meta">#{r.rank} · {r.score}pt</span>
                 </span>
                 {!isOptimal && (
                   <span className="result-row-best">
-                    best: {r.bestCategory.emoji} {r.bestCategory.label}
+                    {s.best} {r.bestCategory.emoji} {bestLbl}
                     <span className="result-row-meta">#{r.bestPossibleRank} · {r.bestPossibleScore}pt</span>
                     <span className="result-row-delta">+{delta}</span>
                   </span>
@@ -64,14 +69,14 @@ export default function ResultScreen({ state, onPlayAgain, onSwitchMode, onMenu,
       <div className="result-actions">
         {state.mode === 'free' && (
           <button className="btn-primary" onClick={onPlayAgain}>
-            Play Again
+            {s.playAgain}
           </button>
         )}
         <button className="btn-secondary" onClick={onSwitchMode} disabled={switchDisabled}>
           {switchLabel}
         </button>
         <button className="btn-secondary" onClick={onMenu}>
-          ← Menu
+          ← {s.menu}
         </button>
       </div>
     </div>

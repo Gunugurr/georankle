@@ -1,17 +1,14 @@
 import { useState } from 'react';
 import type { DailyGameEntry } from '../storage';
+import { useStrings } from '../i18n';
 
 interface Props {
   history: Record<string, DailyGameEntry>;
   onClose: () => void;
 }
 
-const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
-
 export default function DailyCalendar({ history, onClose }: Props) {
+  const s = useStrings();
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
@@ -51,27 +48,27 @@ export default function DailyCalendar({ history, onClose }: Props) {
   return (
     <div className="calendar-panel">
       <div className="calendar-header-row">
-        <span className="calendar-section-title">📅 Daily History</span>
+        <span className="calendar-section-title">{s.dailyHistory}</span>
         <button
           className="calendar-close"
           onClick={onClose}
-          aria-label="Close calendar"
+          aria-label={s.closeCalendar}
         >
           ✕
         </button>
       </div>
       <div className="calendar-top">
-        <button className="calendar-nav" onClick={goPrev} aria-label="Previous month">‹</button>
-        <span className="calendar-title">{MONTH_NAMES[viewMonth]} {viewYear}</span>
+        <button className="calendar-nav" onClick={goPrev} aria-label={s.previousMonth}>‹</button>
+        <span className="calendar-title">{s.months[viewMonth]} {viewYear}</span>
         <button
           className="calendar-nav"
           onClick={goNext}
           disabled={atFuture}
-          aria-label="Next month"
+          aria-label={s.nextMonth}
         >›</button>
       </div>
       <div className="calendar-weekdays">
-        <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+        {s.weekdays.map((d, i) => <span key={i}>{d}</span>)}
       </div>
       <div className="calendar-grid">
         {cells.map((d, i) => {

@@ -16,6 +16,8 @@ import {
   saveDailyGame,
 } from './storage';
 import type { FreeGameEntry, DailyGameEntry } from './storage';
+import { LangProvider, STRINGS } from './i18n';
+import type { Language } from './i18n';
 
 type Screen = 'menu' | 'playing' | 'results';
 type Theme = 'dark' | 'light';
@@ -25,18 +27,27 @@ function todayKey(): string {
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 }
 
+function detectDefaultLang(): Language {
+  const stored = localStorage.getItem('georankle-lang');
+  if (stored === 'tr' || stored === 'en') return stored;
+  const browser = navigator.language.toLowerCase();
+  return browser.startsWith('tr') ? 'tr' : 'en';
+}
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>('menu');
   const [game, setGame] = useState<GameState | null>(null);
   const [theme, setTheme] = useState<Theme>(() => {
     return localStorage.getItem('georankle-theme') === 'light' ? 'light' : 'dark';
   });
+  const [lang, setLang] = useState<Language>(detectDefaultLang);
   const [freeHistory, setFreeHistory] = useState<FreeGameEntry[]>(() => loadFreeHistory());
   const [dailyHistory, setDailyHistory] = useState<Record<string, DailyGameEntry>>(() =>
     loadDailyHistory(),
   );
   const [calendarOpen, setCalendarOpen] = useState(false);
 
+  const s = STRINGS[lang];
   const dailyPlayed = !!dailyHistory[todayKey()];
 
   useEffect(() => {
@@ -44,8 +55,17 @@ export default function App() {
     localStorage.setItem('georankle-theme', theme);
   }, [theme]);
 
+  useEffect(() => {
+    document.documentElement.setAttribute('lang', lang);
+    localStorage.setItem('georankle-lang', lang);
+  }, [lang]);
+
   const toggleTheme = useCallback(() => {
     setTheme(t => (t === 'dark' ? 'light' : 'dark'));
+  }, []);
+
+  const toggleLang = useCallback(() => {
+    setLang(l => (l === 'en' ? 'tr' : 'en'));
   }, []);
 
   const startGame = useCallback((mode: 'daily' | 'free') => {
@@ -99,69 +119,79 @@ export default function App() {
     }
   }, [game, dailyPlayed, startGame]);
 
-  const themeToggle = (
-    <button
-      className="theme-toggle"
-      onClick={toggleTheme}
-      aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-      title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-    >
-      {theme === 'dark' ? '☀️' : '🌙'}
-    </button>
+  const floatingControls = (
+    <div className="floating-controls">
+      <button
+        className="lang-toggle"
+        onClick={toggleLang}
+        aria-label="Toggle language"
+        title="Toggle language"
+      >
+        {lang === 'en' ? 'TR' : 'EN'}
+      </button>
+      <button
+        className="theme-toggle"
+        onClick={toggleTheme}
+        aria-label={theme === 'dark' ? s.switchToLight : s.switchToDark}
+        title={theme === 'dark' ? s.switchToLight : s.switchToDark}
+      >
+        {theme === 'dark' ? '☀️' : '🌙'}
+      </button>
+    </div>
   );
 
-  if (screen === 'menu') {
-    return (
-      <div className="app">
-        {themeToggle}
-        <div className="menu-screen">
-          <div className="menu-logo">🌍</div>
-          <h1 className="menu-title">GeoRankle</h1>
-          <p className="menu-subtitle">Match each country to its strongest world ranking stat</p>
-          <div className="menu-actions">
-            <div className="daily-row">
-              <button
-                className="btn-primary btn-large"
-                onClick={() => startGame('daily')}
-                disabled={dailyPlayed}
-              >
-                {dailyPlayed ? '✅ Today\'s Daily Done' : '📅 Daily Challenge'}
-              </button>
-              <button
-                className={`calendar-toggle${calendarOpen ? ' calendar-toggle--active' : ''}`}
-                onClick={() => setCalendarOpen(o => !o)}
-                aria-label="View daily history"
-                title="View daily history"
-              >
-                📅
-              </button>
-            </div>
-            {calendarOpen && (
-              <DailyCalendar history={dailyHistory} onClose={() => setCalendarOpen(false)} />
-            )}
-            <button className="btn-secondary btn-large" onClick={() => startGame('free')}>
-              🎲 Free Play
+  const menuScreen = (
+    <div className="app">
+      {floatingControls}
+      <div className="menu-screen">
+        <div className="menu-logo">🌍</div>
+        <h1 className="menu-title">{s.appName}</h1>
+        <p className="menu-subtitle">{s.subtitle}</p>
+        <div className="menu-actions">
+          <div className="daily-row">
+            <button
+              className="btn-primary btn-large"
+              onClick={() => startGame('daily')}
+              disabled={dailyPlayed}
+            >
+              {dailyPlayed ? s.dailyDone : s.dailyChallenge}
+            </button>
+            <button
+              className={`calendar-toggle${calendarOpen ? ' calendar-toggle--active' : ''}`}
+              onClick={() => setCalendarOpen(o => !o)}
+              aria-label={s.viewDailyHistory}
+              title={s.viewDailyHistory}
+            >
+              📅
             </button>
           </div>
+          {calendarOpen && (
+            <DailyCalendar history={dailyHistory} onClose={() => setCalendarOpen(false)} />
+          )}
+          <button className="btn-secondary btn-large" onClick={() => startGame('free')}>
+            {s.freePlay}
+          </button>
+        </div>
 
-          <FreeStatsPanel entries={freeHistory} />
+        <FreeStatsPanel entries={freeHistory} />
 
-          <div className="menu-how">
-            <h3>How to play</h3>
-            <ol>
-              <li>You'll see 8 country flags one by one</li>
-              <li>For each flag, pick a stat category (GDP, Population…)</li>
-              <li>Each category can only be used once</li>
-              <li>Lower world rank = more points (rank #1 = 100 pts)</li>
-              <li>Max score: 800 pts</li>
-            </ol>
-          </div>
+        <div className="menu-how">
+          <h3>{s.howToPlay}</h3>
+          <ol>
+            {s.rules.map((rule, i) => (
+              <li key={i}>{rule}</li>
+            ))}
+          </ol>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (screen === 'playing' && game) {
+  let body: React.ReactNode = null;
+
+  if (screen === 'menu') {
+    body = menuScreen;
+  } else if (screen === 'playing' && game) {
     const roundIndex = Math.min(game.currentRound, game.countries.length - 1);
     const country = game.countries[roundIndex]!;
     const displayRound = Math.min(game.currentRound + 1, game.countries.length);
@@ -173,20 +203,20 @@ export default function App() {
       ]),
     );
 
-    return (
+    body = (
       <div className="app">
-        {themeToggle}
+        {floatingControls}
         <div className="game-screen">
           <div className="game-header">
             <button className="btn-back" onClick={() => setScreen('menu')}>
               <span className="btn-back-arrow">←</span>
-              <span>Menu</span>
+              <span>{s.menu}</span>
             </button>
             <span className="game-progress">{displayRound} / {game.countries.length}</span>
           </div>
 
           <div className="game-score-card">
-            <span className="game-score-label">Score</span>
+            <span className="game-score-label">{s.score}</span>
             <span className="game-score-value">{game.totalScore}</span>
           </div>
 
@@ -216,12 +246,10 @@ export default function App() {
         </div>
       </div>
     );
-  }
-
-  if (screen === 'results' && game) {
-    return (
+  } else if (screen === 'results' && game) {
+    body = (
       <div className="app">
-        {themeToggle}
+        {floatingControls}
         <ResultScreen
           state={game}
           onPlayAgain={handlePlayAgain}
@@ -233,5 +261,5 @@ export default function App() {
     );
   }
 
-  return null;
+  return <LangProvider value={lang}>{body}</LangProvider>;
 }
