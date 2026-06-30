@@ -22,15 +22,18 @@ export default function CategoryButton({ category, status, onClick, assignedCoun
       disabled={status !== 'available'}
       className={`category-btn category-btn--${status}`}
       aria-label={category.label}
-      title={category.description}
+      title={
+        assignedCountry
+          ? `${category.label} — ${assignedCountry.name}`
+          : category.description
+      }
     >
       <span className="category-emoji">{category.emoji}</span>
       <span className="category-label">{category.label}</span>
       {assignedCountry && (
         <span className="category-result">
-          <FlagEmoji code={assignedCountry.code} size={16} />
-          <span className="category-result-name">{assignedCountry.name}</span>
-          <span className="category-result-rank">#{assignedCountry.rank} · {assignedCountry.score}pt</span>
+          <FlagEmoji code={assignedCountry.code} size={24} />
+          <span className="category-result-rank">#{assignedCountry.rank}</span>
         </span>
       )}
     </button>

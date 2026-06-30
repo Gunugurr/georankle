@@ -1,25 +1,25 @@
 import type { GameState } from '../game/gameLogic';
-import { maxPossibleScore } from '../game/gameLogic';
+import { maxPossibleScore, grade } from '../game/gameLogic';
 import FlagEmoji from './FlagEmoji';
 
 interface Props {
   state: GameState;
   onPlayAgain: () => void;
   onSwitchMode: () => void;
+  onMenu: () => void;
+  dailyPlayed?: boolean;
 }
 
-function grade(score: number, max: number): string {
-  const pct = score / max;
-  if (pct >= 0.9) return 'S';
-  if (pct >= 0.75) return 'A';
-  if (pct >= 0.55) return 'B';
-  if (pct >= 0.35) return 'C';
-  return 'D';
-}
-
-export default function ResultScreen({ state, onPlayAgain, onSwitchMode }: Props) {
+export default function ResultScreen({ state, onPlayAgain, onSwitchMode, onMenu, dailyPlayed }: Props) {
   const max = maxPossibleScore(state);
   const g = grade(state.totalScore, max);
+  const switchDisabled = state.mode === 'free' && dailyPlayed;
+  const switchLabel =
+    state.mode === 'daily'
+      ? 'Play Free Mode'
+      : dailyPlayed
+      ? '✅ Daily Done'
+      : 'Daily Challenge';
 
   return (
     <div className="result-screen">
@@ -32,7 +32,7 @@ export default function ResultScreen({ state, onPlayAgain, onSwitchMode }: Props
       <div className="result-rounds">
         {state.rounds.map((r, i) => (
           <div key={i} className="result-row">
-            <FlagEmoji code={r.country.code} size={28} />
+            <FlagEmoji code={r.country.code} size={48} />
             <span className="result-row-name">{r.country.name}</span>
             <span className="result-row-cat">
               {r.chosenCategory.emoji} {r.chosenCategory.label}
@@ -49,8 +49,11 @@ export default function ResultScreen({ state, onPlayAgain, onSwitchMode }: Props
             Play Again
           </button>
         )}
-        <button className="btn-secondary" onClick={onSwitchMode}>
-          {state.mode === 'daily' ? 'Play Free Mode' : 'Daily Challenge'}
+        <button className="btn-secondary" onClick={onSwitchMode} disabled={switchDisabled}>
+          {switchLabel}
+        </button>
+        <button className="btn-secondary" onClick={onMenu}>
+          ← Menu
         </button>
       </div>
     </div>

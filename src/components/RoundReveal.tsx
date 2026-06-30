@@ -1,5 +1,4 @@
 import type { RoundResult } from '../game/gameLogic';
-import { rankToScore } from '../game/gameLogic';
 import FlagEmoji from './FlagEmoji';
 
 interface Props {
@@ -32,7 +31,7 @@ export default function RoundReveal({ result, onNext, isLast }: Props) {
         <div className="reveal-category">
           {chosenCategory.emoji} {chosenCategory.label}
         </div>
-        <div className={`reveal-rank rank-${rankToScore(rank)}`}>
+        <div className="reveal-rank">
           World rank #{rank} → <strong>{score} pts</strong>
         </div>
       </div>
@@ -54,7 +53,7 @@ export default function RoundReveal({ result, onNext, isLast }: Props) {
         </div>
       )}
 
-      {isOptimal && <div className="reveal-optimal">You picked the best category! 🎯</div>}
+      {isOptimal && <div className="reveal-optimal"></div>}
 
       <button className="btn-primary" onClick={onNext}>
         {isLast ? 'See Results' : 'Next Country →'}

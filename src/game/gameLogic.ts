@@ -70,13 +70,12 @@ export function createGame(
   };
 }
 
+const WORLD_COUNTRIES = 195;
+
 export function rankToScore(rank: number): number {
-  if (rank <= 3) return 100;
-  if (rank <= 10) return 80;
-  if (rank <= 25) return 60;
-  if (rank <= 50) return 40;
-  if (rank <= 100) return 20;
-  return 10;
+  if (rank > WORLD_COUNTRIES) return 0;
+  const raw = (WORLD_COUNTRIES - rank + 1) / WORLD_COUNTRIES * 100;
+  return Math.round(raw);
 }
 
 export function getBestCategory(country: Country, categories: Category[]): Category {
@@ -120,4 +119,14 @@ export function playRound(state: GameState, chosenCategory: Category): GameState
 
 export function maxPossibleScore(state: GameState): number {
   return state.countries.length * 100;
+}
+
+export function grade(score: number, max: number): string {
+  if (max === 0) return 'D';
+  const pct = score / max;
+  if (pct >= 0.9) return 'S';
+  if (pct >= 0.75) return 'A';
+  if (pct >= 0.55) return 'B';
+  if (pct >= 0.35) return 'C';
+  return 'D';
 }

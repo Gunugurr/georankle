@@ -3,18 +3,25 @@ interface Props {
   size?: number;
 }
 
-function codeToEmoji(code: string): string {
-  return code
-    .toUpperCase()
-    .split('')
-    .map(c => String.fromCodePoint(0x1f1e6 - 65 + c.charCodeAt(0)))
-    .join('');
-}
-
 export default function FlagEmoji({ code, size = 64 }: Props) {
+  const lower = code.toLowerCase();
+  const width = size;
+  const height = Math.round((size * 2) / 3);
   return (
-    <span style={{ fontSize: size, lineHeight: 1, display: 'inline-block' }} aria-label={code}>
-      {codeToEmoji(code)}
-    </span>
+    <img
+      src={`https://flagcdn.com/${lower}.svg`}
+      alt={code}
+      width={width}
+      height={height}
+      style={{
+        display: 'inline-block',
+        width,
+        height,
+        objectFit: 'contain',
+        borderRadius: 2,
+        flexShrink: 0,
+      }}
+      loading="lazy"
+    />
   );
 }

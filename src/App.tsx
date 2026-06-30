@@ -1,77 +1,151 @@
 import { useState, useCallback, useEffect } from 'react';
 import { COUNTRIES_UNIQUE } from './data/countries';
 import { CATEGORIES } from './data/categories';
-import { createGame, playRound } from './game/gameLogic';
+import { createGame, playRound, maxPossibleScore, grade } from './game/gameLogic';
 import type { GameState } from './game/gameLogic';
 import type { Category } from './data/categories';
 import FlagEmoji from './components/FlagEmoji';
 import CategoryButton from './components/CategoryButton';
 import ResultScreen from './components/ResultScreen';
+import DailyCalendar from './components/DailyCalendar';
+import FreeStatsPanel from './components/FreeStatsPanel';
+import {
+  loadFreeHistory,
+  loadDailyHistory,
+  saveFreeGame,
+  saveDailyGame,
+} from './storage';
+import type { FreeGameEntry, DailyGameEntry } from './storage';
 
 type Screen = 'menu' | 'playing' | 'results';
-type Phase = 'picking' | 'revealed';
+type Theme = 'dark' | 'light';
 
-const AUTO_ADVANCE_MS = 1500;
+function todayKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('menu');
-  const [phase, setPhase] = useState<Phase>('picking');
   const [game, setGame] = useState<GameState | null>(null);
+  const [theme, setTheme] = useState<Theme>(() => {
+    return localStorage.getItem('georankle-theme') === 'light' ? 'light' : 'dark';
+  });
+  const [freeHistory, setFreeHistory] = useState<FreeGameEntry[]>(() => loadFreeHistory());
+  const [dailyHistory, setDailyHistory] = useState<Record<string, DailyGameEntry>>(() =>
+    loadDailyHistory(),
+  );
+  const [calendarOpen, setCalendarOpen] = useState(false);
+
+  const dailyPlayed = !!dailyHistory[todayKey()];
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('georankle-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme(t => (t === 'dark' ? 'light' : 'dark'));
+  }, []);
 
   const startGame = useCallback((mode: 'daily' | 'free') => {
     const g = createGame(mode, COUNTRIES_UNIQUE, CATEGORIES);
     setGame(g);
-    setPhase('picking');
     setScreen('playing');
   }, []);
 
   const handleCategoryPick = useCallback(
     (cat: Category) => {
-      if (!game || phase !== 'picking') return;
+      if (!game) return;
       const updated = playRound(game, cat);
       setGame(updated);
-      setPhase('revealed');
+      if (updated.finished) {
+        const max = maxPossibleScore(updated);
+        const g = grade(updated.totalScore, max);
+        if (updated.mode === 'daily') {
+          const entry: DailyGameEntry = {
+            dateKey: todayKey(),
+            totalScore: updated.totalScore,
+            maxScore: max,
+            grade: g,
+          };
+          saveDailyGame(entry);
+          setDailyHistory(prev => ({ ...prev, [entry.dateKey]: entry }));
+        } else {
+          const entry: FreeGameEntry = {
+            date: new Date().toISOString(),
+            totalScore: updated.totalScore,
+            maxScore: max,
+            grade: g,
+          };
+          saveFreeGame(entry);
+          setFreeHistory(prev => [...prev, entry]);
+        }
+        setScreen('results');
+      }
     },
-    [game, phase],
+    [game],
   );
-
-  const handleNext = useCallback(() => {
-    if (!game) return;
-    if (game.finished) {
-      setScreen('results');
-    } else {
-      setPhase('picking');
-    }
-  }, [game]);
-
-  // Auto-advance after showing the result
-  useEffect(() => {
-    if (phase !== 'revealed') return;
-    const id = setTimeout(handleNext, AUTO_ADVANCE_MS);
-    return () => clearTimeout(id);
-  }, [phase, handleNext]);
 
   const handlePlayAgain = useCallback(() => startGame('free'), [startGame]);
   const handleSwitchMode = useCallback(() => {
     if (!game) return;
-    startGame(game.mode === 'daily' ? 'free' : 'daily');
-  }, [game, startGame]);
+    if (game.mode === 'daily') {
+      startGame('free');
+    } else if (!dailyPlayed) {
+      startGame('daily');
+    } else {
+      setScreen('menu');
+    }
+  }, [game, dailyPlayed, startGame]);
+
+  const themeToggle = (
+    <button
+      className="theme-toggle"
+      onClick={toggleTheme}
+      aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+      title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+    >
+      {theme === 'dark' ? '☀️' : '🌙'}
+    </button>
+  );
 
   if (screen === 'menu') {
     return (
       <div className="app">
+        {themeToggle}
         <div className="menu-screen">
           <div className="menu-logo">🌍</div>
           <h1 className="menu-title">GeoRankle</h1>
           <p className="menu-subtitle">Match each country to its strongest world ranking stat</p>
           <div className="menu-actions">
-            <button className="btn-primary btn-large" onClick={() => startGame('daily')}>
-              📅 Daily Challenge
-            </button>
+            <div className="daily-row">
+              <button
+                className="btn-primary btn-large"
+                onClick={() => startGame('daily')}
+                disabled={dailyPlayed}
+              >
+                {dailyPlayed ? '✅ Today\'s Daily Done' : '📅 Daily Challenge'}
+              </button>
+              <button
+                className={`calendar-toggle${calendarOpen ? ' calendar-toggle--active' : ''}`}
+                onClick={() => setCalendarOpen(o => !o)}
+                aria-label="View daily history"
+                title="View daily history"
+              >
+                📅
+              </button>
+            </div>
+            {calendarOpen && (
+              <DailyCalendar history={dailyHistory} onClose={() => setCalendarOpen(false)} />
+            )}
             <button className="btn-secondary btn-large" onClick={() => startGame('free')}>
               🎲 Free Play
             </button>
           </div>
+
+          <FreeStatsPanel entries={freeHistory} />
+
           <div className="menu-how">
             <h3>How to play</h3>
             <ol>
@@ -88,13 +162,10 @@ export default function App() {
   }
 
   if (screen === 'playing' && game) {
-    // Which round are we showing? During 'revealed', show the round we just completed.
-    const roundIndex = phase === 'revealed' ? game.currentRound - 1 : game.currentRound;
+    const roundIndex = Math.min(game.currentRound, game.countries.length - 1);
     const country = game.countries[roundIndex]!;
-    const displayRound = roundIndex + 1;
-    const lastRound = game.rounds[game.rounds.length - 1];
+    const displayRound = Math.min(game.currentRound + 1, game.countries.length);
 
-    // Build a map of categoryId → assigned country info (for used buttons)
     const assignmentMap = new Map(
       game.rounds.map(r => [
         r.chosenCategory.id,
@@ -104,43 +175,33 @@ export default function App() {
 
     return (
       <div className="app">
+        {themeToggle}
         <div className="game-screen">
           <div className="game-header">
-            <button className="btn-back" onClick={() => setScreen('menu')}>← Menu</button>
+            <button className="btn-back" onClick={() => setScreen('menu')}>
+              <span className="btn-back-arrow">←</span>
+              <span>Menu</span>
+            </button>
             <span className="game-progress">{displayRound} / {game.countries.length}</span>
-            <span className="game-score">🏆 {game.totalScore}</span>
+          </div>
+
+          <div className="game-score-card">
+            <span className="game-score-label">Score</span>
+            <span className="game-score-value">{game.totalScore}</span>
           </div>
 
           <div className="game-flag-area">
-            <FlagEmoji code={country.code} size={96} />
-            <h2 className="game-country">{country.name}</h2>
-            {phase === 'revealed' && lastRound ? (
-              <p className="game-result-line">
-                {lastRound.chosenCategory.emoji} {lastRound.chosenCategory.label} — rank #{lastRound.rank} →{' '}
-                <strong>{lastRound.score} pts</strong>
-              </p>
-            ) : (
-              <p className="game-prompt">Pick the best category for this country</p>
-            )}
-          </div>
-
-          {phase === 'revealed' && (
-            <div className="auto-advance-bar">
-              <div className="auto-advance-fill" />
+            <div className="game-country-block" key={game.currentRound}>
+              <FlagEmoji code={country.code} size={116} />
+              <h2 className="game-country">{country.name}</h2>
             </div>
-          )}
+            <p className="game-prompt"></p>
+          </div>
 
           <div className="categories-grid">
             {game.gameCategories.map(cat => {
               const assignment = assignmentMap.get(cat.id);
-              const isJustRevealed =
-                phase === 'revealed' && lastRound?.chosenCategory.id === cat.id;
-              const status = isJustRevealed
-                ? 'revealed'
-                : assignment
-                ? 'used'
-                : 'available';
-
+              const status: 'available' | 'used' = assignment ? 'used' : 'available';
               return (
                 <CategoryButton
                   key={cat.id}
@@ -160,7 +221,14 @@ export default function App() {
   if (screen === 'results' && game) {
     return (
       <div className="app">
-        <ResultScreen state={game} onPlayAgain={handlePlayAgain} onSwitchMode={handleSwitchMode} />
+        {themeToggle}
+        <ResultScreen
+          state={game}
+          onPlayAgain={handlePlayAgain}
+          onSwitchMode={handleSwitchMode}
+          onMenu={() => setScreen('menu')}
+          dailyPlayed={dailyPlayed}
+        />
       </div>
     );
   }
