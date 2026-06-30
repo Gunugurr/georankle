@@ -29,18 +29,36 @@ export default function ResultScreen({ state, onPlayAgain, onSwitchMode, onMenu,
         {state.totalScore} / {max}
       </div>
 
+      <div className="result-review-title">Round by round</div>
       <div className="result-rounds">
-        {state.rounds.map((r, i) => (
-          <div key={i} className="result-row">
-            <FlagEmoji code={r.country.code} size={48} />
-            <span className="result-row-name">{r.country.name}</span>
-            <span className="result-row-cat">
-              {r.chosenCategory.emoji} {r.chosenCategory.label}
-            </span>
-            <span className="result-row-rank">#{r.rank}</span>
-            <span className="result-row-score">{r.score}pt</span>
-          </div>
-        ))}
+        {state.rounds.map((r, i) => {
+          const isOptimal = r.chosenCategory.id === r.bestCategory.id;
+          const delta = r.bestPossibleScore - r.score;
+          return (
+            <div
+              key={i}
+              className={`result-row${isOptimal ? ' result-row--optimal' : ''}`}
+              style={{ animationDelay: `${i * 0.15}s` }}
+            >
+              <FlagEmoji code={r.country.code} size={40} />
+              <div className="result-row-body">
+                <span className="result-row-name">{r.country.name}</span>
+                <span className="result-row-yours">
+                  <span className="result-row-mark">{isOptimal ? '✓' : '✗'}</span>
+                  {r.chosenCategory.emoji} {r.chosenCategory.label}
+                  <span className="result-row-meta">#{r.rank} · {r.score}pt</span>
+                </span>
+                {!isOptimal && (
+                  <span className="result-row-best">
+                    best: {r.bestCategory.emoji} {r.bestCategory.label}
+                    <span className="result-row-meta">#{r.bestPossibleRank} · {r.bestPossibleScore}pt</span>
+                    <span className="result-row-delta">+{delta}</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <div className="result-actions">

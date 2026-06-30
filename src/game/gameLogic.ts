@@ -6,6 +6,7 @@ export interface RoundResult {
   chosenCategory: Category;
   rank: number;
   score: number;
+  bestCategory: Category;
   bestPossibleRank: number;
   bestPossibleScore: number;
 }
@@ -99,6 +100,7 @@ export function playRound(state: GameState, chosenCategory: Category): GameState
     chosenCategory,
     rank,
     score,
+    bestCategory: bestCat,
     bestPossibleRank: bestRank,
     bestPossibleScore: bestScore,
   };

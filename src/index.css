@@ -549,19 +549,72 @@ html, body, #root {
   border-radius: var(--radius);
   overflow: hidden;
 }
+.result-review-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text2);
+  margin-top: 6px;
+  align-self: flex-start;
+}
 .result-row {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--bg3);
   font-size: 0.88rem;
+  animation: slideUpFade 0.45s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 .result-row:last-child { border-bottom: none; }
-.result-row-name { flex: 1; font-weight: 600; }
-.result-row-cat { color: var(--text2); font-size: 0.82rem; }
-.result-row-rank { color: var(--text2); min-width: 36px; text-align: right; }
-.result-row-score { min-width: 40px; text-align: right; font-weight: 700; color: var(--accent2); }
+.result-row-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.result-row-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.result-row-yours {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: var(--text2);
+}
+.result-row--optimal .result-row-yours { color: var(--green); font-weight: 600; }
+.result-row-mark {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--red);
+}
+.result-row--optimal .result-row-mark { color: var(--green); }
+.result-row-best {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--accent2);
+}
+.result-row-meta {
+  color: var(--text2);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.result-row-delta {
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
 .result-actions { display: flex; flex-direction: column; gap: 10px; width: 100%; }
 
 /* ── Buttons ── */
@@ -609,11 +662,20 @@ html, body, #root {
 .btn-large { font-size: 1.1rem; padding: 15px 24px; }
 
 /* ── Mobile tweaks ── */
-@media (max-width: 400px) {
-  .game-country { font-size: 1.3rem; }
-  .categories-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
-  .category-btn { padding: 8px 10px; min-height: 48px; gap: 8px; }
-  .category-emoji { font-size: 1.2rem; }
-  .category-label { font-size: 0.76rem; }
-  .category-result-rank { font-size: 0.72rem; }
+@media (max-width: 600px) {
+  .app { padding: 20px 14px 18px; }
+  .game-screen { gap: 14px; }
+
+  .game-score-card { padding: 12px 16px; gap: 4px; }
+  .game-score-label { font-size: 0.85rem; letter-spacing: 3px; }
+  .game-score-value { font-size: 2.4rem; }
+
+  .game-flag-area { padding: 18px 16px 16px; gap: 8px; }
+  .game-country { font-size: 1.35rem; }
+
+  .categories-grid { grid-template-columns: 1fr; gap: 6px; }
+  .category-btn { padding: 10px 14px; min-height: 46px; gap: 10px; }
+  .category-emoji { font-size: 1.35rem; }
+  .category-label { font-size: 0.9rem; }
+  .category-result-rank { font-size: 0.85rem; }
 }
