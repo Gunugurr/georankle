@@ -5,11 +5,17 @@ import { useStrings } from '../i18n';
 interface Props {
   history: Record<string, DailyGameEntry>;
   onClose: () => void;
+  onPlayDate: (date: Date) => void;
 }
 
-export default function DailyCalendar({ history, onClose }: Props) {
+const CATCH_UP_DAYS = 3;
+
+export default function DailyCalendar({ history, onClose, onPlayDate }: Props) {
   const s = useStrings();
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const minPlayable = new Date(today);
+  minPlayable.setDate(minPlayable.getDate() - CATCH_UP_DAYS);
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
 
@@ -77,14 +83,14 @@ export default function DailyCalendar({ history, onClose }: Props) {
           }
           const key = `${viewYear}-${viewMonth + 1}-${d}`;
           const entry = history[key];
-          const isToday =
-            viewYear === today.getFullYear() &&
-            viewMonth === today.getMonth() &&
-            d === today.getDate();
+          const cellDate = new Date(viewYear, viewMonth, d);
+          const isToday = cellDate.getTime() === today.getTime();
+          const isPlayable = !entry && cellDate <= today && cellDate >= minPlayable;
           const cls = [
             'calendar-cell',
             entry && 'calendar-cell--played',
             isToday && 'calendar-cell--today',
+            isPlayable && 'calendar-cell--playable',
           ]
             .filter(Boolean)
             .join(' ');
@@ -92,10 +98,30 @@ export default function DailyCalendar({ history, onClose }: Props) {
             <div
               key={i}
               className={cls}
-              title={entry ? `${entry.totalScore} / ${entry.maxScore} (${entry.grade})` : undefined}
+              role={isPlayable ? 'button' : undefined}
+              tabIndex={isPlayable ? 0 : undefined}
+              onClick={isPlayable ? () => onPlayDate(cellDate) : undefined}
+              onKeyDown={
+                isPlayable
+                  ? e => {
+                      if (e.key === 'Enter' || e.key === ' ') onPlayDate(cellDate);
+                    }
+                  : undefined
+              }
+              title={
+                entry
+                  ? `${entry.totalScore} / ${entry.maxScore} (${entry.grade})`
+                  : isPlayable
+                  ? s.playThisDay
+                  : undefined
+              }
             >
               <span className="calendar-day">{d}</span>
-              {entry && <span className="calendar-grade">{entry.grade}</span>}
+              {entry && (
+                <span className="calendar-grade">
+                  {entry.grade} · {entry.totalScore}
+                </span>
+              )}
             </div>
           );
         })}

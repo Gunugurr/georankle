@@ -11,8 +11,12 @@ export interface RoundResult {
   bestPossibleScore: number;
 }
 
+export type GameMode = 'daily' | 'free' | 'evil';
+
 export interface GameState {
-  mode: 'daily' | 'free';
+  mode: GameMode;
+  /** Calendar key ("YYYY-M-D") this daily game belongs to; null for free mode. */
+  dailyDateKey: string | null;
   countries: Country[];
   gameCategories: Category[]; // the 8 picked for this game (fixed order)
   availableCategories: Category[];
@@ -46,24 +50,29 @@ function shuffle<T>(arr: T[], rand: () => number): T[] {
 }
 
 /** Daily seed: same game for everyone on the same calendar day */
-function dailySeed(): number {
-  const now = new Date();
-  return now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+function dailySeed(date: Date): number {
+  return date.getFullYear() * 10000 + (date.getMonth() + 1) * 100 + date.getDate();
+}
+
+export function dailyDateKey(date: Date): string {
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
 }
 
 export function createGame(
-  mode: 'daily' | 'free',
+  mode: GameMode,
   allCountries: Country[],
   allCategories: Category[],
+  dailyDate: Date = new Date(),
 ): GameState {
-  const seed = mode === 'daily' ? dailySeed() : Math.floor(Math.random() * 1e9);
+  const seed = mode === 'daily' ? dailySeed(dailyDate) : Math.floor(Math.random() * 1e9);
   const rand = mulberry32(seed);
   const countries = shuffle(allCountries, rand).slice(0, 8);
   const categories = shuffle(allCategories, rand).slice(0, 8);
-  const optimal = computeOptimalAssignment(countries, categories);
+  const optimal = computeOptimalAssignment(countries, categories, mode === 'evil');
 
   return {
     mode,
+    dailyDateKey: mode === 'daily' ? dailyDateKey(dailyDate) : null,
     countries,
     gameCategories: categories,
     availableCategories: categories,
@@ -80,11 +89,13 @@ export function createGame(
 /**
  * Best possible total if the player assigned categories to countries optimally,
  * plus the one-to-one assignment (country index -> category) that achieves it.
+ * In `reverse` mode, the worst-ranked category per country scores highest instead.
  * Brute-force over all permutations (8! = 40320 — fast enough).
  */
 export function computeOptimalAssignment(
   countries: Country[],
   categories: Category[],
+  reverse = false,
 ): { score: number; categories: Category[] } {
   const n = countries.length;
   if (n === 0) return { score: 0, categories: [] };
@@ -96,7 +107,7 @@ export function computeOptimalAssignment(
     if (start === n) {
       let sum = 0;
       for (let i = 0; i < n; i++) {
-        sum += rankToScore(countries[i]!.stats[cats[i]!.id]);
+        sum += rankToScore(countries[i]!.stats[cats[i]!.id], reverse);
       }
       if (sum > best) {
         best = sum;
@@ -117,19 +128,22 @@ export function computeOptimalAssignment(
 
 const WORLD_COUNTRIES = 195;
 
-export function rankToScore(rank: number): number {
+/** In `reverse` mode, the worst world rank (closer to 195) scores highest. */
+export function rankToScore(rank: number, reverse = false): number {
   if (rank > WORLD_COUNTRIES) return 0;
-  const raw = (WORLD_COUNTRIES - rank + 1) / WORLD_COUNTRIES * 100;
+  const effectiveRank = reverse ? WORLD_COUNTRIES - rank + 1 : rank;
+  const raw = (WORLD_COUNTRIES - effectiveRank + 1) / WORLD_COUNTRIES * 100;
   return Math.round(raw);
 }
 
 export function playRound(state: GameState, chosenCategory: Category): GameState {
   const country = state.countries[state.currentRound]!;
+  const reverse = state.mode === 'evil';
   const rank = country.stats[chosenCategory.id];
-  const score = rankToScore(rank);
+  const score = rankToScore(rank, reverse);
   const bestCat = state.optimalAssignment[state.currentRound]!;
   const bestRank = country.stats[bestCat.id];
-  const bestScore = rankToScore(bestRank);
+  const bestScore = rankToScore(bestRank, reverse);
 
   const round: RoundResult = {
     country,

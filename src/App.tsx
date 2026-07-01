@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { COUNTRIES_UNIQUE } from './data/countries';
 import { CATEGORIES } from './data/categories';
 import { createGame, playRound, maxPossibleScore, grade } from './game/gameLogic';
-import type { GameState } from './game/gameLogic';
+import type { GameState, GameMode } from './game/gameLogic';
 import type { Category } from './data/categories';
 import FlagEmoji from './components/FlagEmoji';
 import CategoryButton from './components/CategoryButton';
@@ -60,6 +60,11 @@ export default function App() {
     localStorage.setItem('georankle-lang', lang);
   }, [lang]);
 
+  const evilActive = screen !== 'menu' && game?.mode === 'evil';
+  useEffect(() => {
+    document.documentElement.setAttribute('data-mode', evilActive ? 'evil' : 'normal');
+  }, [evilActive]);
+
   const toggleTheme = useCallback(() => {
     setTheme(t => (t === 'dark' ? 'light' : 'dark'));
   }, []);
@@ -68,11 +73,19 @@ export default function App() {
     setLang(l => (l === 'en' ? 'tr' : 'en'));
   }, []);
 
-  const startGame = useCallback((mode: 'daily' | 'free') => {
-    const g = createGame(mode, COUNTRIES_UNIQUE, CATEGORIES);
+  const startGame = useCallback((mode: GameMode, date?: Date) => {
+    const g = createGame(mode, COUNTRIES_UNIQUE, CATEGORIES, date);
     setGame(g);
     setScreen('playing');
   }, []);
+
+  const handlePlayPastDaily = useCallback(
+    (date: Date) => {
+      startGame('daily', date);
+      setCalendarOpen(false);
+    },
+    [startGame],
+  );
 
   const handleCategoryPick = useCallback(
     (cat: Category) => {
@@ -84,7 +97,7 @@ export default function App() {
         const g = grade(updated.totalScore, max);
         if (updated.mode === 'daily') {
           const entry: DailyGameEntry = {
-            dateKey: todayKey(),
+            dateKey: updated.dailyDateKey ?? todayKey(),
             totalScore: updated.totalScore,
             maxScore: max,
             grade: g,
@@ -107,7 +120,9 @@ export default function App() {
     [game],
   );
 
-  const handlePlayAgain = useCallback(() => startGame('free'), [startGame]);
+  const handlePlayAgain = useCallback(() => {
+    startGame(game?.mode === 'evil' ? 'evil' : 'free');
+  }, [game, startGame]);
   const handleSwitchMode = useCallback(() => {
     if (!game) return;
     if (game.mode === 'daily') {
@@ -166,10 +181,21 @@ export default function App() {
             </button>
           </div>
           {calendarOpen && (
-            <DailyCalendar history={dailyHistory} onClose={() => setCalendarOpen(false)} />
+            <DailyCalendar
+              history={dailyHistory}
+              onClose={() => setCalendarOpen(false)}
+              onPlayDate={handlePlayPastDaily}
+            />
           )}
           <button className="btn-secondary btn-large" onClick={() => startGame('free')}>
             {s.freePlay}
+          </button>
+          <button
+            className="btn-evil btn-large"
+            onClick={() => startGame('evil')}
+            title={s.evilModeDesc}
+          >
+            {s.evilMode}
           </button>
         </div>
 
@@ -221,6 +247,12 @@ export default function App() {
           </div>
 
           <div className="game-flag-area">
+            {game.mode === 'evil' && (
+              <>
+                <span className="evil-badge">{s.evilMode}</span>
+                <p className="evil-info">{s.evilModeInfo}</p>
+              </>
+            )}
             <div className="game-country-block" key={game.currentRound}>
               <FlagEmoji code={country.code} size={116} />
               <h2 className="game-country">{country.name}</h2>

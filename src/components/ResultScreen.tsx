@@ -26,6 +26,7 @@ export default function ResultScreen({ state, onPlayAgain, onSwitchMode, onMenu,
 
   return (
     <div className="result-screen">
+      {state.mode === 'evil' && <span className="evil-badge">{s.evilMode}</span>}
       <h2 className="result-title">{s.gameOver}</h2>
       <div className="result-grade">{g}</div>
       <div className="result-score">
@@ -67,14 +68,16 @@ export default function ResultScreen({ state, onPlayAgain, onSwitchMode, onMenu,
       </div>
 
       <div className="result-actions">
-        {state.mode === 'free' && (
+        {(state.mode === 'free' || state.mode === 'evil') && (
           <button className="btn-primary" onClick={onPlayAgain}>
             {s.playAgain}
           </button>
         )}
-        <button className="btn-secondary" onClick={onSwitchMode} disabled={switchDisabled}>
-          {switchLabel}
-        </button>
+        {state.mode !== 'evil' && (
+          <button className="btn-secondary" onClick={onSwitchMode} disabled={switchDisabled}>
+            {switchLabel}
+          </button>
+        )}
         <button className="btn-secondary" onClick={onMenu}>
           ← {s.menu}
         </button>
