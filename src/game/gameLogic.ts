@@ -22,6 +22,8 @@ export interface GameState {
   totalScore: number;
   finished: boolean;
   maxAchievableScore: number;
+  /** Fixed optimal category assignment, one per country (parallel to `countries`). */
+  optimalAssignment: Category[];
 }
 
 /** Seed-based pseudo-random number generator (mulberry32) */
@@ -58,6 +60,7 @@ export function createGame(
   const rand = mulberry32(seed);
   const countries = shuffle(allCountries, rand).slice(0, 8);
   const categories = shuffle(allCategories, rand).slice(0, 8);
+  const optimal = computeOptimalAssignment(countries, categories);
 
   return {
     mode,
@@ -69,22 +72,25 @@ export function createGame(
     rounds: [],
     totalScore: 0,
     finished: false,
-    maxAchievableScore: computeMaxAchievableScore(countries, categories),
+    maxAchievableScore: optimal.score,
+    optimalAssignment: optimal.categories,
   };
 }
 
 /**
- * Best possible total if the player assigned categories to countries optimally.
+ * Best possible total if the player assigned categories to countries optimally,
+ * plus the one-to-one assignment (country index -> category) that achieves it.
  * Brute-force over all permutations (8! = 40320 — fast enough).
  */
-export function computeMaxAchievableScore(
+export function computeOptimalAssignment(
   countries: Country[],
   categories: Category[],
-): number {
+): { score: number; categories: Category[] } {
   const n = countries.length;
-  if (n === 0) return 0;
+  if (n === 0) return { score: 0, categories: [] };
   const cats = [...categories];
   let best = 0;
+  let bestAssignment = [...cats];
 
   const permute = (start: number) => {
     if (start === n) {
@@ -92,7 +98,10 @@ export function computeMaxAchievableScore(
       for (let i = 0; i < n; i++) {
         sum += rankToScore(countries[i]!.stats[cats[i]!.id]);
       }
-      if (sum > best) best = sum;
+      if (sum > best) {
+        best = sum;
+        bestAssignment = [...cats];
+      }
       return;
     }
     for (let i = start; i < n; i++) {
@@ -103,7 +112,7 @@ export function computeMaxAchievableScore(
   };
 
   permute(0);
-  return best;
+  return { score: best, categories: bestAssignment };
 }
 
 const WORLD_COUNTRIES = 195;
@@ -114,19 +123,11 @@ export function rankToScore(rank: number): number {
   return Math.round(raw);
 }
 
-export function getBestCategory(country: Country, categories: Category[]): Category {
-  return categories.reduce((best, cat) => {
-    const bestRank = country.stats[best.id];
-    const catRank = country.stats[cat.id];
-    return catRank < bestRank ? cat : best;
-  });
-}
-
 export function playRound(state: GameState, chosenCategory: Category): GameState {
   const country = state.countries[state.currentRound]!;
   const rank = country.stats[chosenCategory.id];
   const score = rankToScore(rank);
-  const bestCat = getBestCategory(country, state.availableCategories);
+  const bestCat = state.optimalAssignment[state.currentRound]!;
   const bestRank = country.stats[bestCat.id];
   const bestScore = rankToScore(bestRank);
 
