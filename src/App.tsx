@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { COUNTRIES_UNIQUE } from './data/countries';
+import { COUNTRIES_UNIQUE, COUNTRIES_EUROPE } from './data/countries';
 import { CATEGORIES } from './data/categories';
 import { createGame, playRound, maxPossibleScore, grade } from './game/gameLogic';
 import type { GameState, GameMode } from './game/gameLogic';
@@ -16,7 +16,7 @@ import {
   saveDailyGame,
 } from './storage';
 import type { FreeGameEntry, DailyGameEntry } from './storage';
-import { LangProvider, STRINGS } from './i18n';
+import { LangProvider, STRINGS, countryName } from './i18n';
 import type { Language } from './i18n';
 
 type Screen = 'menu' | 'playing' | 'results';
@@ -46,6 +46,7 @@ export default function App() {
     loadDailyHistory(),
   );
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
 
   const s = STRINGS[lang];
   const dailyPlayed = !!dailyHistory[todayKey()];
@@ -74,7 +75,8 @@ export default function App() {
   }, []);
 
   const startGame = useCallback((mode: GameMode, date?: Date) => {
-    const g = createGame(mode, COUNTRIES_UNIQUE, CATEGORIES, date);
+    const pool = mode === 'europe' ? COUNTRIES_EUROPE : COUNTRIES_UNIQUE;
+    const g = createGame(mode, pool, CATEGORIES, date);
     setGame(g);
     setScreen('playing');
   }, []);
@@ -110,6 +112,7 @@ export default function App() {
             totalScore: updated.totalScore,
             maxScore: max,
             grade: g,
+            mode: updated.mode,
           };
           saveFreeGame(entry);
           setFreeHistory(prev => [...prev, entry]);
@@ -121,7 +124,8 @@ export default function App() {
   );
 
   const handlePlayAgain = useCallback(() => {
-    startGame(game?.mode === 'evil' ? 'evil' : 'free');
+    const mode = game?.mode;
+    startGame(mode && mode !== 'daily' ? mode : 'free');
   }, [game, startGame]);
   const handleSwitchMode = useCallback(() => {
     if (!game) return;
@@ -163,43 +167,75 @@ export default function App() {
         <h1 className="menu-title">{s.appName}</h1>
         <p className="menu-subtitle">{s.subtitle}</p>
         <div className="menu-actions">
-          <div className="daily-row">
-            <button
-              className="btn-primary btn-large"
-              onClick={() => startGame('daily')}
-              disabled={dailyPlayed}
-            >
-              {dailyPlayed ? s.dailyDone : s.dailyChallenge}
-            </button>
-            <button
-              className={`calendar-toggle${calendarOpen ? ' calendar-toggle--active' : ''}`}
-              onClick={() => setCalendarOpen(o => !o)}
-              aria-label={s.viewDailyHistory}
-              title={s.viewDailyHistory}
-            >
-              📅
-            </button>
-          </div>
-          {calendarOpen && (
-            <DailyCalendar
-              history={dailyHistory}
-              onClose={() => setCalendarOpen(false)}
-              onPlayDate={handlePlayPastDaily}
-            />
-          )}
-          <button className="btn-secondary btn-large" onClick={() => startGame('free')}>
-            {s.freePlay}
-          </button>
-          <button
-            className="btn-evil btn-large"
-            onClick={() => startGame('evil')}
-            title={s.evilModeDesc}
-          >
-            {s.evilMode}
-          </button>
-        </div>
+          <section className="menu-section">
+            <div className="menu-section-header">{s.dailySectionTitle}</div>
+            <div className="daily-row">
+              <button
+                className="btn-primary btn-large"
+                onClick={() => startGame('daily')}
+                disabled={dailyPlayed}
+              >
+                {dailyPlayed ? s.dailyDone : s.dailyChallenge}
+              </button>
+              <button
+                className={`calendar-toggle${calendarOpen ? ' calendar-toggle--active' : ''}`}
+                onClick={() => setCalendarOpen(o => !o)}
+                aria-label={s.viewDailyHistory}
+                title={s.viewDailyHistory}
+              >
+                📅
+              </button>
+            </div>
+            <p className="menu-section-desc">{s.dailyDesc}</p>
+            {calendarOpen && (
+              <DailyCalendar
+                history={dailyHistory}
+                onClose={() => setCalendarOpen(false)}
+                onPlayDate={handlePlayPastDaily}
+              />
+            )}
+          </section>
 
-        <FreeStatsPanel entries={freeHistory} />
+          <section className="menu-section">
+            <div className="menu-section-header-row">
+              <div className="menu-section-header">{s.unlimitedSectionTitle}</div>
+              <button
+                className={`stats-toggle${statsOpen ? ' stats-toggle--active' : ''}`}
+                onClick={() => setStatsOpen(o => !o)}
+                aria-label={s.viewStats}
+                title={s.viewStats}
+              >
+                📊 {s.statsButton}
+              </button>
+            </div>
+            <div className="mode-row">
+              <button className="mode-btn" onClick={() => startGame('free')}>
+                <span className="mode-btn-emoji">🌍</span>
+                <span className="mode-btn-text">
+                  <span className="mode-btn-title">{s.worldModeTitle}</span>
+                  <span className="mode-btn-desc">{s.worldModeDesc}</span>
+                </span>
+              </button>
+              <button className="mode-btn" onClick={() => startGame('europe')}>
+                <span className="mode-btn-emoji">
+                  <FlagEmoji code="EU" size={28} />
+                </span>
+                <span className="mode-btn-text">
+                  <span className="mode-btn-title">{s.europeModeTitle}</span>
+                  <span className="mode-btn-desc">{s.europeModeDesc}</span>
+                </span>
+              </button>
+            </div>
+            <button className="mode-btn mode-btn--evil" onClick={() => startGame('evil')}>
+              <span className="mode-btn-emoji">😈</span>
+              <span className="mode-btn-text">
+                <span className="mode-btn-title">{s.evilModeTitle}</span>
+                <span className="mode-btn-desc">{s.evilModeDesc}</span>
+              </span>
+            </button>
+            {statsOpen && <FreeStatsPanel entries={freeHistory} />}
+          </section>
+        </div>
 
         <div className="menu-how">
           <h3>{s.howToPlay}</h3>
@@ -225,7 +261,12 @@ export default function App() {
     const assignmentMap = new Map(
       game.rounds.map(r => [
         r.chosenCategory.id,
-        { code: r.country.code, name: r.country.name, rank: r.rank, score: r.score },
+        {
+          code: r.country.code,
+          name: countryName(r.country.code, r.country.name, lang),
+          rank: r.rank,
+          score: r.score,
+        },
       ]),
     );
 
@@ -255,7 +296,7 @@ export default function App() {
             )}
             <div className="game-country-block" key={game.currentRound}>
               <FlagEmoji code={country.code} size={116} />
-              <h2 className="game-country">{country.name}</h2>
+              <h2 className="game-country">{countryName(country.code, country.name, lang)}</h2>
             </div>
             <p className="game-prompt"></p>
           </div>

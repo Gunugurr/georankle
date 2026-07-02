@@ -8,14 +8,14 @@ interface Props {
   onPlayDate: (date: Date) => void;
 }
 
-const CATCH_UP_DAYS = 3;
+/** First day the daily challenge existed; earlier days can't be played. */
+const DAILY_EPOCH = new Date(2026, 5, 28);
 
 export default function DailyCalendar({ history, onClose, onPlayDate }: Props) {
   const s = useStrings();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const minPlayable = new Date(today);
-  minPlayable.setDate(minPlayable.getDate() - CATCH_UP_DAYS);
+  const minPlayable = DAILY_EPOCH;
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
 
@@ -50,6 +50,9 @@ export default function DailyCalendar({ history, onClose, onPlayDate }: Props) {
   const atFuture =
     viewYear > today.getFullYear() ||
     (viewYear === today.getFullYear() && viewMonth >= today.getMonth());
+  const atEpoch =
+    viewYear < DAILY_EPOCH.getFullYear() ||
+    (viewYear === DAILY_EPOCH.getFullYear() && viewMonth <= DAILY_EPOCH.getMonth());
 
   return (
     <div className="calendar-panel">
@@ -64,7 +67,12 @@ export default function DailyCalendar({ history, onClose, onPlayDate }: Props) {
         </button>
       </div>
       <div className="calendar-top">
-        <button className="calendar-nav" onClick={goPrev} aria-label={s.previousMonth}>‹</button>
+        <button
+          className="calendar-nav"
+          onClick={goPrev}
+          disabled={atEpoch}
+          aria-label={s.previousMonth}
+        >‹</button>
         <span className="calendar-title">{s.months[viewMonth]} {viewYear}</span>
         <button
           className="calendar-nav"

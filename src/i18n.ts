@@ -9,8 +9,15 @@ export const STRINGS = {
     subtitle: 'Match each country to its strongest world ranking stat',
     dailyChallenge: '📅 Daily Challenge',
     dailyDone: "✅ Today's Daily Done",
-    freePlay: '🎲 Free Play',
     evilMode: '😈 Evil Mode',
+    dailySectionTitle: 'Daily',
+    dailyDesc: 'One puzzle per day — same countries for everyone',
+    unlimitedSectionTitle: 'Unlimited Modes',
+    worldModeTitle: 'World',
+    worldModeDesc: 'All countries',
+    europeModeTitle: 'Europe',
+    europeModeDesc: 'Europe-only ranks',
+    evilModeTitle: 'Evil Mode',
     evilModeDesc: 'Reversed scoring — the worst-ranked stat scores highest',
     evilModeInfo: 'Reversed scoring: pick the stat where this country ranks worst for the most points.',
     howToPlay: 'How to play',
@@ -27,14 +34,19 @@ export const STRINGS = {
     roundByRound: 'Round by round',
     best: 'best:',
     playAgain: 'Play Again',
-    playFreeMode: 'Play Free Mode',
+    playFreeMode: '🌍 Play World Mode',
     dailyDoneShort: '✅ Daily Done',
     dailyHistory: '📅 Daily History',
-    freeStats: '🎲 Free Play Stats',
+    freeStats: '📊 Stats',
+    statsButton: 'Stats',
+    statsWorld: '🌍 World',
+    statsEurope: 'Europe',
+    statsEvil: '😈 Evil',
     played: 'Played',
     avg: 'Avg',
     bestStat: 'Best',
-    noFreeGames: 'No free games played yet',
+    noFreeGames: 'No games played yet',
+    viewStats: 'View stats',
     viewDailyHistory: 'View daily history',
     closeCalendar: 'Close calendar',
     playThisDay: 'Play this day',
@@ -53,8 +65,15 @@ export const STRINGS = {
     subtitle: 'Her ülkeyi en güçlü olduğu dünya sıralaması istatistiğine eşle',
     dailyChallenge: '📅 Günlük Görev',
     dailyDone: '✅ Bugünün Görevi Tamam',
-    freePlay: '🎲 Serbest Oyun',
     evilMode: '😈 Şeytan Modu',
+    dailySectionTitle: 'Günlük',
+    dailyDesc: 'Günde bir bulmaca — herkese aynı ülkeler',
+    unlimitedSectionTitle: 'Sınırsız Modlar',
+    worldModeTitle: 'Dünya',
+    worldModeDesc: 'Tüm ülkeler',
+    europeModeTitle: 'Avrupa',
+    europeModeDesc: 'Avrupa içi sıralama',
+    evilModeTitle: 'Şeytan Modu',
     evilModeDesc: 'Ters puanlama — en kötü sıralanan istatistik en yüksek puanı verir',
     evilModeInfo: 'Ters puanlama: en çok puan için bu ülkenin en kötü sıralandığı istatistiği seç.',
     howToPlay: 'Nasıl oynanır',
@@ -71,14 +90,19 @@ export const STRINGS = {
     roundByRound: 'Tur tur',
     best: 'en iyi:',
     playAgain: 'Tekrar Oyna',
-    playFreeMode: 'Serbest Oyun',
+    playFreeMode: '🌍 Dünya Modu',
     dailyDoneShort: '✅ Günlük Tamam',
     dailyHistory: '📅 Günlük Geçmiş',
-    freeStats: '🎲 Serbest Oyun İstatistikleri',
+    freeStats: '📊 İstatistikler',
+    statsButton: 'İstatistik',
+    statsWorld: '🌍 Dünya',
+    statsEurope: 'Avrupa',
+    statsEvil: '😈 Şeytan',
     played: 'Oynanan',
     avg: 'Ort.',
     bestStat: 'En İyi',
-    noFreeGames: 'Henüz serbest oyun yok',
+    noFreeGames: 'Henüz oyun oynanmadı',
+    viewStats: 'İstatistikleri gör',
     viewDailyHistory: 'Günlük geçmişi gör',
     closeCalendar: 'Takvimi kapat',
     playThisDay: 'Bu günü oyna',
@@ -201,6 +225,19 @@ export function useStrings() {
 
 export function categoryLabel(id: keyof CountryStats, lang: Language): string {
   return CATEGORY_LABELS[lang][id];
+}
+
+const displayNamesCache: Partial<Record<Language, Intl.DisplayNames>> = {};
+
+/** Localized country name from its ISO code; falls back to the English data name. */
+export function countryName(code: string, fallback: string, lang: Language): string {
+  if (lang === 'en') return fallback;
+  try {
+    const dn = (displayNamesCache[lang] ??= new Intl.DisplayNames([lang], { type: 'region' }));
+    return dn.of(code) ?? fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 export function categoryDescription(id: keyof CountryStats, lang: Language): string {

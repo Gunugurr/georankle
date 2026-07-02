@@ -1,8 +1,16 @@
+export type UnlimitedMode = 'free' | 'europe' | 'evil';
+
 export interface FreeGameEntry {
   date: string;
   totalScore: number;
   maxScore: number;
   grade: string;
+  /** Entries saved before mode tracking have no mode; treat them as 'free'. */
+  mode?: UnlimitedMode;
+}
+
+export function entriesForMode(entries: FreeGameEntry[], mode: UnlimitedMode): FreeGameEntry[] {
+  return entries.filter(e => (e.mode ?? 'free') === mode);
 }
 
 export interface DailyGameEntry {

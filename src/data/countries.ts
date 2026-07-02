@@ -420,3 +420,22 @@ export const COUNTRIES_UNIQUE: Country[] = COUNTRIES.filter(c => {
   seen.add(c.code);
   return true;
 });
+
+const EUROPE_CODES = new Set([
+  'AD', 'AL', 'AM', 'AT', 'AZ', 'BA', 'BE', 'BG', 'BY', 'CH', 'CY', 'CZ',
+  'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GB', 'GE', 'GR', 'HR', 'HU', 'IE',
+  'IS', 'IT', 'LI', 'LT', 'LU', 'LV', 'MC', 'MD', 'ME', 'MK', 'MT', 'NL',
+  'NO', 'PL', 'PT', 'RO', 'RS', 'RU', 'SE', 'SI', 'SK', 'SM', 'TR', 'UA',
+]);
+/** European pool with ranks recomputed relative to Europe only (1..pool size). */
+export const COUNTRIES_EUROPE: Country[] = (() => {
+  const pool = COUNTRIES_UNIQUE.filter(c => EUROPE_CODES.has(c.code));
+  const keys = Object.keys(pool[0]!.stats) as (keyof CountryStats)[];
+  return pool.map(c => {
+    const stats = { ...c.stats };
+    for (const key of keys) {
+      stats[key] = 1 + pool.filter(o => o.stats[key] < c.stats[key]).length;
+    }
+    return { ...c, stats };
+  });
+})();

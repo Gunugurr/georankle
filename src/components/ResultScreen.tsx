@@ -1,7 +1,7 @@
 import type { GameState } from '../game/gameLogic';
 import { maxPossibleScore, grade } from '../game/gameLogic';
 import FlagEmoji from './FlagEmoji';
-import { useLang, useStrings, categoryLabel } from '../i18n';
+import { useLang, useStrings, categoryLabel, countryName } from '../i18n';
 
 interface Props {
   state: GameState;
@@ -16,7 +16,7 @@ export default function ResultScreen({ state, onPlayAgain, onSwitchMode, onMenu,
   const lang = useLang();
   const max = maxPossibleScore(state);
   const g = grade(state.totalScore, max);
-  const switchDisabled = state.mode === 'free' && dailyPlayed;
+  const switchDisabled = state.mode !== 'daily' && dailyPlayed;
   const switchLabel =
     state.mode === 'daily'
       ? s.playFreeMode
@@ -48,7 +48,7 @@ export default function ResultScreen({ state, onPlayAgain, onSwitchMode, onMenu,
             >
               <FlagEmoji code={r.country.code} size={40} />
               <div className="result-row-body">
-                <span className="result-row-name">{r.country.name}</span>
+                <span className="result-row-name">{countryName(r.country.code, r.country.name, lang)}</span>
                 <span className="result-row-yours">
                   <span className="result-row-mark">{isOptimal ? '✓' : '✗'}</span>
                   {r.chosenCategory.emoji} {chosenLbl}
@@ -68,7 +68,7 @@ export default function ResultScreen({ state, onPlayAgain, onSwitchMode, onMenu,
       </div>
 
       <div className="result-actions">
-        {(state.mode === 'free' || state.mode === 'evil') && (
+        {state.mode !== 'daily' && (
           <button className="btn-primary" onClick={onPlayAgain}>
             {s.playAgain}
           </button>

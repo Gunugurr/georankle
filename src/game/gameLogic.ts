@@ -11,7 +11,7 @@ export interface RoundResult {
   bestPossibleScore: number;
 }
 
-export type GameMode = 'daily' | 'free' | 'evil';
+export type GameMode = 'daily' | 'free' | 'europe' | 'evil';
 
 export interface GameState {
   mode: GameMode;
@@ -28,6 +28,8 @@ export interface GameState {
   maxAchievableScore: number;
   /** Fixed optimal category assignment, one per country (parallel to `countries`). */
   optimalAssignment: Category[];
+  /** Number of ranked countries the ranks are relative to (195 world, pool size for Europe). */
+  rankScale: number;
 }
 
 /** Seed-based pseudo-random number generator (mulberry32) */
@@ -58,6 +60,27 @@ export function dailyDateKey(date: Date): string {
   return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
 }
 
+function tierOf(c: Country): 'a' | 'b' | 'c' {
+  const top30 = Object.values(c.stats).filter(r => r <= 30).length;
+  return top30 >= 5 ? 'a' : top30 >= 1 ? 'b' : 'c';
+}
+
+/** 4 strong + 3 mid + 1 weak: every hand stays playable, tiny countries stay rare. */
+function pickGameCountries(all: Country[], rand: () => number): Country[] {
+  const pools = { a: [] as Country[], b: [] as Country[], c: [] as Country[] };
+  for (const c of all) pools[tierOf(c)].push(c);
+  const picked = [
+    ...shuffle(pools.a, rand).slice(0, 4),
+    ...shuffle(pools.b, rand).slice(0, 3),
+    ...shuffle(pools.c, rand).slice(0, 1),
+  ];
+  if (picked.length < 8) {
+    const chosen = new Set(picked.map(c => c.code));
+    picked.push(...shuffle(all.filter(c => !chosen.has(c.code)), rand).slice(0, 8 - picked.length));
+  }
+  return shuffle(picked, rand);
+}
+
 export function createGame(
   mode: GameMode,
   allCountries: Country[],
@@ -66,9 +89,10 @@ export function createGame(
 ): GameState {
   const seed = mode === 'daily' ? dailySeed(dailyDate) : Math.floor(Math.random() * 1e9);
   const rand = mulberry32(seed);
-  const countries = shuffle(allCountries, rand).slice(0, 8);
+  const rankScale = allCountries.length;
+  const countries = pickGameCountries(allCountries, rand);
   const categories = shuffle(allCategories, rand).slice(0, 8);
-  const optimal = computeOptimalAssignment(countries, categories, mode === 'evil');
+  const optimal = computeOptimalAssignment(countries, categories, mode === 'evil', rankScale);
 
   return {
     mode,
@@ -83,6 +107,7 @@ export function createGame(
     finished: false,
     maxAchievableScore: optimal.score,
     optimalAssignment: optimal.categories,
+    rankScale,
   };
 }
 
@@ -96,6 +121,7 @@ export function computeOptimalAssignment(
   countries: Country[],
   categories: Category[],
   reverse = false,
+  rankScale = WORLD_COUNTRIES,
 ): { score: number; categories: Category[] } {
   const n = countries.length;
   if (n === 0) return { score: 0, categories: [] };
@@ -107,7 +133,7 @@ export function computeOptimalAssignment(
     if (start === n) {
       let sum = 0;
       for (let i = 0; i < n; i++) {
-        sum += rankToScore(countries[i]!.stats[cats[i]!.id], reverse);
+        sum += rankToScore(countries[i]!.stats[cats[i]!.id], reverse, rankScale);
       }
       if (sum > best) {
         best = sum;
@@ -128,11 +154,11 @@ export function computeOptimalAssignment(
 
 const WORLD_COUNTRIES = 195;
 
-/** In `reverse` mode, the worst world rank (closer to 195) scores highest. */
-export function rankToScore(rank: number, reverse = false): number {
-  if (rank > WORLD_COUNTRIES) return 0;
-  const effectiveRank = reverse ? WORLD_COUNTRIES - rank + 1 : rank;
-  const raw = (WORLD_COUNTRIES - effectiveRank + 1) / WORLD_COUNTRIES * 100;
+/** In `reverse` mode, the worst rank (closest to `total`) scores highest. */
+export function rankToScore(rank: number, reverse = false, total = WORLD_COUNTRIES): number {
+  if (rank > total) return 0;
+  const effectiveRank = reverse ? total - rank + 1 : rank;
+  const raw = (total - effectiveRank + 1) / total * 100;
   return Math.round(raw);
 }
 
@@ -140,10 +166,10 @@ export function playRound(state: GameState, chosenCategory: Category): GameState
   const country = state.countries[state.currentRound]!;
   const reverse = state.mode === 'evil';
   const rank = country.stats[chosenCategory.id];
-  const score = rankToScore(rank, reverse);
+  const score = rankToScore(rank, reverse, state.rankScale);
   const bestCat = state.optimalAssignment[state.currentRound]!;
   const bestRank = country.stats[bestCat.id];
-  const bestScore = rankToScore(bestRank, reverse);
+  const bestScore = rankToScore(bestRank, reverse, state.rankScale);
 
   const round: RoundResult = {
     country,

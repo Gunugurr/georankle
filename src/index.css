@@ -75,8 +75,138 @@ html, body, #root {
 .menu-actions {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
+
+/* ── Menu sections (daily vs unlimited) ── */
+.menu-section {
+  background: var(--bg2);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: var(--shadow);
+  text-align: left;
+}
+.menu-section-header {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text2);
+}
+.menu-section-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.stats-toggle {
+  height: 30px;
+  padding: 0 12px;
+  background: var(--bg3);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  font-family: inherit;
+}
+.stats-toggle:hover { border-color: var(--accent); }
+.stats-toggle:active { transform: scale(0.94); }
+.stats-toggle--active {
+  border-color: var(--accent);
+  background: var(--bg);
+}
+.menu-section-desc {
+  font-size: 0.78rem;
+  color: var(--text2);
+  text-align: center;
+  line-height: 1.35;
+}
+
+/* Nested panels inside a menu section sit flat on the card */
+.menu-section .calendar-panel {
+  background: var(--bg);
+  border: 1px solid var(--bg3);
+  box-shadow: none;
+}
+.menu-section .stats-panel {
+  background: transparent;
+  box-shadow: none;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--bg3);
+  border-radius: 0;
+}
+
+/* ── Mode buttons (unlimited modes) ── */
+.mode-row {
+  display: flex;
+  gap: 10px;
+}
+.mode-row > .mode-btn {
+  flex: 1;
+  min-width: 0;
+}
+.mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--bg3);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: border-color 0.15s, transform 0.1s, box-shadow 0.15s, background 0.15s;
+}
+.mode-btn:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.mode-btn:active { transform: scale(0.98); }
+.mode-btn-emoji {
+  font-size: 1.7rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.mode-btn-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.mode-btn-title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+.mode-btn-desc {
+  font-size: 0.75rem;
+  color: var(--text2);
+  line-height: 1.3;
+}
+.mode-btn--evil {
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.35), rgba(220, 38, 38, 0.18));
+  border-color: rgba(220, 38, 38, 0.45);
+}
+.mode-btn--evil .mode-btn-title { color: #f87171; }
+.mode-btn--evil:hover {
+  border-color: #dc2626;
+  box-shadow: 0 0 14px rgba(220, 38, 38, 0.35);
+}
+:root[data-theme="light"] .mode-btn--evil {
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.1), rgba(220, 38, 38, 0.04));
+}
+:root[data-theme="light"] .mode-btn--evil .mode-btn-title { color: #b91c1c; }
 
 .menu-how {
   background: var(--bg2);
@@ -273,6 +403,34 @@ html, body, #root {
   display: flex;
   justify-content: space-around;
   gap: 8px;
+}
+.stats-table {
+  display: grid;
+  grid-template-columns: 1fr repeat(3, minmax(52px, auto));
+  gap: 8px 10px;
+  align-items: center;
+}
+.stats-col-header {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text2);
+  font-weight: 700;
+  text-align: center;
+}
+.stats-row-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.stats-cell {
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--accent2);
+  font-variant-numeric: tabular-nums;
 }
 .stat-item {
   display: flex;
@@ -701,22 +859,6 @@ html, body, #root {
 }
 
 .btn-large { font-size: 1.1rem; padding: 15px 24px; }
-
-.btn-evil {
-  padding: 13px 24px;
-  background: linear-gradient(135deg, #7f1d1d, #dc2626);
-  color: #fee2e2;
-  border: 1px solid #dc2626;
-  border-radius: var(--radius);
-  font-size: 1rem;
-  font-weight: 700;
-  cursor: pointer;
-  font-family: inherit;
-  transition: box-shadow 0.15s, transform 0.1s;
-  width: 100%;
-}
-.btn-evil:hover { box-shadow: 0 0 16px rgba(220, 38, 38, 0.6); }
-.btn-evil:active { transform: scale(0.97); }
 
 .evil-badge {
   display: inline-block;
