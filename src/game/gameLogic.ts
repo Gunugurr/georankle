@@ -15,6 +15,8 @@ export type GameMode = 'daily' | 'free' | 'europe' | 'evil';
 
 export interface GameState {
   mode: GameMode;
+  /** PRNG seed that generated this game; lets duel links replay the exact same game. */
+  seed: number;
   /** Calendar key ("YYYY-M-D") this daily game belongs to; null for free mode. */
   dailyDateKey: string | null;
   countries: Country[];
@@ -86,8 +88,10 @@ export function createGame(
   allCountries: Country[],
   allCategories: Category[],
   dailyDate: Date = new Date(),
+  forcedSeed?: number,
 ): GameState {
-  const seed = mode === 'daily' ? dailySeed(dailyDate) : Math.floor(Math.random() * 1e9);
+  const seed =
+    forcedSeed ?? (mode === 'daily' ? dailySeed(dailyDate) : Math.floor(Math.random() * 1e9));
   const rand = mulberry32(seed);
   const rankScale = allCountries.length;
   const countries = pickGameCountries(allCountries, rand);
@@ -96,6 +100,7 @@ export function createGame(
 
   return {
     mode,
+    seed,
     dailyDateKey: mode === 'daily' ? dailyDateKey(dailyDate) : null,
     countries,
     gameCategories: categories,

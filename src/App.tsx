@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { COUNTRIES_UNIQUE, COUNTRIES_EUROPE } from './data/countries';
 import { CATEGORIES } from './data/categories';
 import { createGame, playRound, maxPossibleScore, grade } from './game/gameLogic';
@@ -9,13 +9,19 @@ import CategoryButton from './components/CategoryButton';
 import ResultScreen from './components/ResultScreen';
 import DailyCalendar from './components/DailyCalendar';
 import FreeStatsPanel from './components/FreeStatsPanel';
+import AchievementsPanel from './components/AchievementsPanel';
 import {
   loadFreeHistory,
   loadDailyHistory,
   saveFreeGame,
   saveDailyGame,
+  computeStreaks,
+  loadAchievements,
+  unlockAchievements,
 } from './storage';
 import type { FreeGameEntry, DailyGameEntry } from './storage';
+import { checkAchievements, ACHIEVEMENT_IDS } from './achievements';
+import type { AchievementId } from './achievements';
 import { LangProvider, STRINGS, countryName } from './i18n';
 import type { Language } from './i18n';
 
@@ -25,6 +31,25 @@ type Theme = 'dark' | 'light';
 function todayKey(): string {
   const d = new Date();
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+
+interface DuelInvite {
+  seed: number;
+  mode: GameMode;
+  target: number | null;
+}
+
+function parseDuelFromUrl(): DuelInvite | null {
+  const params = new URLSearchParams(window.location.search);
+  const rawSeed = params.get('duel');
+  if (!rawSeed) return null;
+  const seed = Number(rawSeed);
+  if (!Number.isFinite(seed)) return null;
+  const m = params.get('mode');
+  const mode: GameMode = m === 'europe' || m === 'evil' ? m : 'free';
+  const rawTarget = params.get('target');
+  const target = rawTarget !== null && Number.isFinite(Number(rawTarget)) ? Number(rawTarget) : null;
+  return { seed, mode, target };
 }
 
 function detectDefaultLang(): Language {
@@ -47,9 +72,23 @@ export default function App() {
   );
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
+  const [achOpen, setAchOpen] = useState(false);
+  const [achievements, setAchievements] = useState<Record<string, string>>(() =>
+    loadAchievements(),
+  );
+  const [newUnlocks, setNewUnlocks] = useState<AchievementId[]>([]);
+  const [duelInvite, setDuelInvite] = useState<DuelInvite | null>(() => parseDuelFromUrl());
+  const [duelTarget, setDuelTarget] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (window.location.search) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, []);
 
   const s = STRINGS[lang];
   const dailyPlayed = !!dailyHistory[todayKey()];
+  const streaks = useMemo(() => computeStreaks(dailyHistory), [dailyHistory]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -74,12 +113,23 @@ export default function App() {
     setLang(l => (l === 'en' ? 'tr' : 'en'));
   }, []);
 
-  const startGame = useCallback((mode: GameMode, date?: Date) => {
-    const pool = mode === 'europe' ? COUNTRIES_EUROPE : COUNTRIES_UNIQUE;
-    const g = createGame(mode, pool, CATEGORIES, date);
-    setGame(g);
-    setScreen('playing');
-  }, []);
+  const startGame = useCallback(
+    (mode: GameMode, date?: Date, seed?: number, target?: number | null) => {
+      const pool = mode === 'europe' ? COUNTRIES_EUROPE : COUNTRIES_UNIQUE;
+      const g = createGame(mode, pool, CATEGORIES, date, seed);
+      setGame(g);
+      setDuelTarget(target ?? null);
+      setNewUnlocks([]);
+      setScreen('playing');
+    },
+    [],
+  );
+
+  const handleAcceptDuel = useCallback(() => {
+    if (!duelInvite) return;
+    startGame(duelInvite.mode, undefined, duelInvite.seed, duelInvite.target);
+    setDuelInvite(null);
+  }, [duelInvite, startGame]);
 
   const handlePlayPastDaily = useCallback(
     (date: Date) => {
@@ -97,6 +147,8 @@ export default function App() {
       if (updated.finished) {
         const max = maxPossibleScore(updated);
         const g = grade(updated.totalScore, max);
+        let newFree = freeHistory;
+        let newDaily = dailyHistory;
         if (updated.mode === 'daily') {
           const entry: DailyGameEntry = {
             dateKey: updated.dailyDateKey ?? todayKey(),
@@ -105,7 +157,8 @@ export default function App() {
             grade: g,
           };
           saveDailyGame(entry);
-          setDailyHistory(prev => ({ ...prev, [entry.dateKey]: entry }));
+          newDaily = { ...dailyHistory, [entry.dateKey]: entry };
+          setDailyHistory(newDaily);
         } else {
           const entry: FreeGameEntry = {
             date: new Date().toISOString(),
@@ -115,12 +168,23 @@ export default function App() {
             mode: updated.mode,
           };
           saveFreeGame(entry);
-          setFreeHistory(prev => [...prev, entry]);
+          newFree = [...freeHistory, entry];
+          setFreeHistory(newFree);
         }
+        const unlockedNow = checkAchievements({
+          state: updated,
+          grade: g,
+          freeHistory: newFree,
+          dailyHistory: newDaily,
+          currentStreak: computeStreaks(newDaily).current,
+          unlocked: achievements,
+        });
+        if (unlockedNow.length > 0) setAchievements(unlockAchievements(unlockedNow));
+        setNewUnlocks(unlockedNow);
         setScreen('results');
       }
     },
-    [game],
+    [game, freeHistory, dailyHistory, achievements],
   );
 
   const handlePlayAgain = useCallback(() => {
@@ -140,6 +204,16 @@ export default function App() {
 
   const floatingControls = (
     <div className="floating-controls">
+      {screen === 'menu' && (
+        <button
+          className={`ach-toggle${achOpen ? ' ach-toggle--active' : ''}`}
+          onClick={() => setAchOpen(o => !o)}
+          aria-label={s.achievementsTitle}
+          title={s.achievementsTitle}
+        >
+          🏆 {s.achievementsTitle}
+        </button>
+      )}
       <button
         className="lang-toggle"
         onClick={toggleLang}
@@ -167,8 +241,37 @@ export default function App() {
         <h1 className="menu-title">{s.appName}</h1>
         <p className="menu-subtitle">{s.subtitle}</p>
         <div className="menu-actions">
+          {duelInvite && (
+            <section className="menu-section menu-section--duel">
+              <div className="menu-section-header">{s.duelInviteTitle}</div>
+              {duelInvite.target !== null && (
+                <p className="menu-section-desc duel-target-desc">
+                  {s.duelTarget}: <strong>{duelInvite.target}</strong>
+                </p>
+              )}
+              <div className="duel-invite-actions">
+                <button className="btn-primary" onClick={handleAcceptDuel}>
+                  {s.duelAccept}
+                </button>
+                <button className="btn-secondary" onClick={() => setDuelInvite(null)}>
+                  {s.duelDismiss}
+                </button>
+              </div>
+            </section>
+          )}
           <section className="menu-section">
-            <div className="menu-section-header">{s.dailySectionTitle}</div>
+            <div className="menu-section-header-row">
+              <div className="menu-section-header">{s.dailySectionTitle}</div>
+              {streaks.current >= 2 && (
+                <span
+                  className="streak-badge"
+                  title={`${streaks.current} ${s.streakLabel}`}
+                  aria-label={`${streaks.current} ${s.streakLabel}`}
+                >
+                  🔥 {streaks.current}
+                </span>
+              )}
+            </div>
             <div className="daily-row">
               <button
                 className="btn-primary btn-large"
@@ -236,6 +339,28 @@ export default function App() {
             {statsOpen && <FreeStatsPanel entries={freeHistory} />}
           </section>
         </div>
+
+        {achOpen && (
+          <div className="ach-overlay" onClick={() => setAchOpen(false)}>
+            <div className="ach-modal" onClick={e => e.stopPropagation()}>
+              <div className="ach-modal-header">
+                <span className="ach-modal-title">
+                  🏆 {s.achievementsTitle} ·{' '}
+                  {ACHIEVEMENT_IDS.filter(id => id in achievements).length}/
+                  {ACHIEVEMENT_IDS.length}
+                </span>
+                <button
+                  className="ach-modal-close"
+                  onClick={() => setAchOpen(false)}
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </div>
+              <AchievementsPanel unlocked={achievements} />
+            </div>
+          </div>
+        )}
 
         <div className="menu-how">
           <h3>{s.howToPlay}</h3>
@@ -329,6 +454,9 @@ export default function App() {
           onSwitchMode={handleSwitchMode}
           onMenu={() => setScreen('menu')}
           dailyPlayed={dailyPlayed}
+          streak={streaks.current}
+          duelTarget={duelTarget}
+          newUnlocks={newUnlocks}
         />
       </div>
     );

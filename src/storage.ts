@@ -22,6 +22,27 @@ export interface DailyGameEntry {
 
 const FREE_HISTORY_KEY = 'georankle-free-history';
 const DAILY_HISTORY_KEY = 'georankle-daily-history';
+const ACHIEVEMENTS_KEY = 'georankle-achievements';
+
+/** Map of achievement id → ISO date it was unlocked. */
+export function loadAchievements(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(ACHIEVEMENTS_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function unlockAchievements(ids: string[]): Record<string, string> {
+  const map = loadAchievements();
+  const now = new Date().toISOString();
+  for (const id of ids) {
+    if (!(id in map)) map[id] = now;
+  }
+  localStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(map));
+  return map;
+}
 
 export function loadFreeHistory(): FreeGameEntry[] {
   try {
@@ -52,6 +73,41 @@ export function saveDailyGame(entry: DailyGameEntry): void {
   const map = loadDailyHistory();
   map[entry.dateKey] = entry;
   localStorage.setItem(DAILY_HISTORY_KEY, JSON.stringify(map));
+}
+
+function dateKeyToDayNumber(key: string): number {
+  const [y, m, d] = key.split('-').map(Number);
+  return Date.UTC(y!, m! - 1, d!) / 86400000;
+}
+
+/** Current streak counts back from today (or yesterday if today isn't played yet). */
+export function computeStreaks(history: Record<string, DailyGameEntry>): {
+  current: number;
+  best: number;
+} {
+  const days = Object.keys(history).map(dateKeyToDayNumber).sort((a, b) => a - b);
+  if (days.length === 0) return { current: 0, best: 0 };
+
+  let best = 1;
+  let run = 1;
+  for (let i = 1; i < days.length; i++) {
+    run = days[i]! === days[i - 1]! + 1 ? run + 1 : 1;
+    if (run > best) best = run;
+  }
+
+  const now = new Date();
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86400000;
+  const last = days[days.length - 1]!;
+  let current = 0;
+  if (last === today || last === today - 1) {
+    current = 1;
+    for (let i = days.length - 2; i >= 0; i--) {
+      if (days[i]! === days[i + 1]! - 1) current++;
+      else break;
+    }
+  }
+
+  return { current, best };
 }
 
 export function freeStats(entries: FreeGameEntry[]): {

@@ -1,5 +1,10 @@
+import { useState } from 'react';
 import type { GameState } from '../game/gameLogic';
 import { maxPossibleScore, grade } from '../game/gameLogic';
+import { buildShareText } from '../share';
+import { ACHIEVEMENT_EMOJI } from '../achievements';
+import type { AchievementId } from '../achievements';
+import Confetti from './Confetti';
 import FlagEmoji from './FlagEmoji';
 import { useLang, useStrings, categoryLabel, countryName } from '../i18n';
 
@@ -9,13 +14,70 @@ interface Props {
   onSwitchMode: () => void;
   onMenu: () => void;
   dailyPlayed?: boolean;
+  streak?: number;
+  duelTarget?: number | null;
+  newUnlocks?: AchievementId[];
 }
 
-export default function ResultScreen({ state, onPlayAgain, onSwitchMode, onMenu, dailyPlayed }: Props) {
+async function shareOrCopy(text: string, onCopied: () => void): Promise<void> {
+  if (navigator.share) {
+    try {
+      await navigator.share({ text });
+    } catch {
+      // user cancelled the share sheet
+    }
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    onCopied();
+  } catch {
+    // clipboard unavailable
+  }
+}
+
+export default function ResultScreen({
+  state,
+  onPlayAgain,
+  onSwitchMode,
+  onMenu,
+  dailyPlayed,
+  streak,
+  duelTarget,
+  newUnlocks,
+}: Props) {
   const s = useStrings();
   const lang = useLang();
+  const [copied, setCopied] = useState(false);
+  const [duelCopied, setDuelCopied] = useState(false);
   const max = maxPossibleScore(state);
   const g = grade(state.totalScore, max);
+
+  const handleShare = () => {
+    const text = buildShareText(state, lang, streak ?? 0);
+    void shareOrCopy(text, () => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const handleDuelShare = () => {
+    const link = `${window.location.origin}${window.location.pathname}?duel=${state.seed}&mode=${state.mode}&target=${state.totalScore}`;
+    const text = `${s.duelShareText.replace('{score}', String(state.totalScore))}\n${link}`;
+    void shareOrCopy(text, () => {
+      setDuelCopied(true);
+      setTimeout(() => setDuelCopied(false), 2000);
+    });
+  };
+
+  const duelLine =
+    duelTarget == null
+      ? null
+      : state.totalScore > duelTarget
+      ? s.duelWin
+      : state.totalScore < duelTarget
+      ? s.duelLose
+      : s.duelTie;
   const switchDisabled = state.mode !== 'daily' && dailyPlayed;
   const switchLabel =
     state.mode === 'daily'
@@ -26,12 +88,36 @@ export default function ResultScreen({ state, onPlayAgain, onSwitchMode, onMenu,
 
   return (
     <div className="result-screen">
+      {g === 'S' && <Confetti />}
       {state.mode === 'evil' && <span className="evil-badge">{s.evilMode}</span>}
       <h2 className="result-title">{s.gameOver}</h2>
       <div className="result-grade">{g}</div>
       <div className="result-score">
         {state.totalScore} / {max}
       </div>
+
+      {duelLine && duelTarget != null && (
+        <div className="duel-result">
+          <div className="duel-result-line">{duelLine}</div>
+          <div className="duel-result-scores">
+            {s.duelYou}: <strong>{state.totalScore}</strong> · {s.duelRival}:{' '}
+            <strong>{duelTarget}</strong>
+          </div>
+        </div>
+      )}
+
+      {newUnlocks && newUnlocks.length > 0 && (
+        <div className="achievement-toasts">
+          {newUnlocks.map(id => (
+            <div key={id} className="achievement-toast">
+              <span className="achievement-toast-title">{s.achievementUnlocked}</span>
+              <span className="achievement-toast-name">
+                {ACHIEVEMENT_EMOJI[id]} {s.achievements[id][0]}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="result-review-title">{s.roundByRound}</div>
       <div className="result-rounds">
@@ -68,10 +154,22 @@ export default function ResultScreen({ state, onPlayAgain, onSwitchMode, onMenu,
       </div>
 
       <div className="result-actions">
-        {state.mode !== 'daily' && (
-          <button className="btn-primary" onClick={onPlayAgain}>
-            {s.playAgain}
+        {state.mode === 'daily' ? (
+          <button className="btn-primary" onClick={handleShare}>
+            {copied ? s.copied : s.share}
           </button>
+        ) : (
+          <>
+            <button className="btn-primary" onClick={onPlayAgain}>
+              {s.playAgain}
+            </button>
+            <button className="btn-secondary" onClick={handleShare}>
+              {copied ? s.copied : s.share}
+            </button>
+            <button className="btn-secondary" onClick={handleDuelShare}>
+              {duelCopied ? s.copied : s.duelButton}
+            </button>
+          </>
         )}
         {state.mode !== 'evil' && (
           <button className="btn-secondary" onClick={onSwitchMode} disabled={switchDisabled}>
