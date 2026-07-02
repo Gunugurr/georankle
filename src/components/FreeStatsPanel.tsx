@@ -22,6 +22,7 @@ export default function FreeStatsPanel({ entries }: Props) {
       ),
     },
     { mode: 'evil', label: s.statsEvil },
+    { mode: 'match', label: s.statsMatch },
   ];
   const rows = groups
     .map(g => ({ ...g, stats: freeStats(entriesForMode(entries, g.mode)) }))

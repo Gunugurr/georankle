@@ -11,7 +11,7 @@ export interface RoundResult {
   bestPossibleScore: number;
 }
 
-export type GameMode = 'daily' | 'free' | 'europe' | 'evil';
+export type GameMode = 'daily' | 'free' | 'europe' | 'evil' | 'match';
 
 export interface GameState {
   mode: GameMode;

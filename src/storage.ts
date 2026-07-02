@@ -1,4 +1,4 @@
-export type UnlimitedMode = 'free' | 'europe' | 'evil';
+export type UnlimitedMode = 'free' | 'europe' | 'evil' | 'match';
 
 export interface FreeGameEntry {
   date: string;

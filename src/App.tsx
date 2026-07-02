@@ -10,6 +10,8 @@ import ResultScreen from './components/ResultScreen';
 import DailyCalendar from './components/DailyCalendar';
 import FreeStatsPanel from './components/FreeStatsPanel';
 import AchievementsPanel from './components/AchievementsPanel';
+import MatchGame from './components/MatchGame';
+import type { MatchState } from './game/matchLogic';
 import {
   loadFreeHistory,
   loadDailyHistory,
@@ -25,7 +27,7 @@ import type { AchievementId } from './achievements';
 import { LangProvider, STRINGS, countryName } from './i18n';
 import type { Language } from './i18n';
 
-type Screen = 'menu' | 'playing' | 'results';
+type Screen = 'menu' | 'playing' | 'results' | 'match';
 type Theme = 'dark' | 'light';
 
 function todayKey(): string {
@@ -79,6 +81,7 @@ export default function App() {
   const [newUnlocks, setNewUnlocks] = useState<AchievementId[]>([]);
   const [duelInvite, setDuelInvite] = useState<DuelInvite | null>(() => parseDuelFromUrl());
   const [duelTarget, setDuelTarget] = useState<number | null>(null);
+  const [matchKey, setMatchKey] = useState(0);
 
   useEffect(() => {
     if (window.location.search) {
@@ -100,10 +103,15 @@ export default function App() {
     localStorage.setItem('georankle-lang', lang);
   }, [lang]);
 
-  const evilActive = screen !== 'menu' && game?.mode === 'evil';
+  const activeMode =
+    screen === 'match'
+      ? 'match'
+      : screen !== 'menu' && game?.mode === 'evil'
+      ? 'evil'
+      : 'normal';
   useEffect(() => {
-    document.documentElement.setAttribute('data-mode', evilActive ? 'evil' : 'normal');
-  }, [evilActive]);
+    document.documentElement.setAttribute('data-mode', activeMode);
+  }, [activeMode]);
 
   const toggleTheme = useCallback(() => {
     setTheme(t => (t === 'dark' ? 'light' : 'dark'));
@@ -123,6 +131,40 @@ export default function App() {
       setScreen('playing');
     },
     [],
+  );
+
+  const startMatch = useCallback(() => {
+    setMatchKey(k => k + 1);
+    setNewUnlocks([]);
+    setScreen('match');
+  }, []);
+
+  const handleMatchFinished = useCallback(
+    (final: MatchState) => {
+      const max = final.game.maxAchievableScore;
+      const g = grade(final.score, max);
+      const entry: FreeGameEntry = {
+        date: new Date().toISOString(),
+        totalScore: final.score,
+        maxScore: max,
+        grade: g,
+        mode: 'match',
+      };
+      saveFreeGame(entry);
+      const newFree = [...freeHistory, entry];
+      setFreeHistory(newFree);
+      const unlockedNow = checkAchievements({
+        state: { ...final.game, totalScore: final.score, finished: true },
+        grade: g,
+        freeHistory: newFree,
+        dailyHistory,
+        currentStreak: streaks.current,
+        unlocked: achievements,
+      });
+      if (unlockedNow.length > 0) setAchievements(unlockAchievements(unlockedNow));
+      setNewUnlocks(unlockedNow);
+    },
+    [freeHistory, dailyHistory, achievements, streaks],
   );
 
   const handleAcceptDuel = useCallback(() => {
@@ -327,6 +369,13 @@ export default function App() {
                 </span>
               </button>
             </div>
+            <button className="mode-btn" onClick={startMatch}>
+              <span className="mode-btn-emoji">🧩</span>
+              <span className="mode-btn-text">
+                <span className="mode-btn-title">{s.matchModeTitle}</span>
+                <span className="mode-btn-desc">{s.matchModeDesc}</span>
+              </span>
+            </button>
             <button className="mode-btn mode-btn--evil" onClick={() => startGame('evil')}>
               <span className="mode-btn-emoji">😈</span>
               <span className="mode-btn-text">
@@ -440,6 +489,19 @@ export default function App() {
             })}
           </div>
         </div>
+      </div>
+    );
+  } else if (screen === 'match') {
+    body = (
+      <div className="app">
+        {floatingControls}
+        <MatchGame
+          key={matchKey}
+          onFinished={handleMatchFinished}
+          onPlayAgain={startMatch}
+          onMenu={() => setScreen('menu')}
+          newUnlocks={newUnlocks}
+        />
       </div>
     );
   } else if (screen === 'results' && game) {

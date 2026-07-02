@@ -22,6 +22,7 @@ export default function FlagEmoji({ code, size = 64 }: Props) {
         flexShrink: 0,
       }}
       loading="lazy"
+      draggable={false}
     />
   );
 }
