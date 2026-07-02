@@ -204,16 +204,6 @@ export default function App() {
 
   const floatingControls = (
     <div className="floating-controls">
-      {screen === 'menu' && (
-        <button
-          className={`ach-toggle${achOpen ? ' ach-toggle--active' : ''}`}
-          onClick={() => setAchOpen(o => !o)}
-          aria-label={s.achievementsTitle}
-          title={s.achievementsTitle}
-        >
-          🏆 {s.achievementsTitle}
-        </button>
-      )}
       <button
         className="lang-toggle"
         onClick={toggleLang}
@@ -236,6 +226,14 @@ export default function App() {
   const menuScreen = (
     <div className="app">
       {floatingControls}
+      <button
+        className={`ach-toggle${achOpen ? ' ach-toggle--active' : ''}`}
+        onClick={() => setAchOpen(o => !o)}
+        aria-label={s.achievementsTitle}
+        title={s.achievementsTitle}
+      >
+        🏆 {s.achievementsTitle}
+      </button>
       <div className="menu-screen">
         <div className="menu-logo">🌍</div>
         <h1 className="menu-title">{s.appName}</h1>
