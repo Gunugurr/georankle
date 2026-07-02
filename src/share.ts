@@ -42,5 +42,6 @@ export function buildShareText(state: GameState, lang: Language, streak: number)
     )
     .join('');
 
-  return `${header}\n${scoreLine}\n${emojis}`;
+  const link = `${window.location.origin}${window.location.pathname}`;
+  return `${header}\n${scoreLine}\n${emojis}\n${link}`;
 }
